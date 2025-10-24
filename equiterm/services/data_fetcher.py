@@ -9,7 +9,9 @@ from datetime import datetime
 from jugaad_data.nse import NSELive
 
 from textual import log
-from ..models.watchlist import MarketData, SymbolType
+from ..models.watchlist import (
+    MarketData, StockData, IndexData, ETFData, MutualFundData, SymbolType
+)
 from ..utils.calculations import calculate_etf_premium, calculate_change_percent
 
 
@@ -23,10 +25,12 @@ class DataFetcher:
             'User-Agent': 'Equiterm/0.1.0'
         })
     
-    def fetch_equity_data(self, symbol: str) -> Optional[MarketData]:
+    def fetch_equity_data(self, symbol: str) -> Optional[StockData]:
         """Fetch equity data using jugaad-data."""
         try:
             quote = self.nse.stock_quote(symbol)
+            
+
             log(f"PRATIK: Equity Data: {quote}")
             if not quote or 'priceInfo' not in quote:
                 log(f"PRATIK: Equity Data: {quote} is None")
@@ -35,6 +39,8 @@ class DataFetcher:
             
             # Extract nested data structures
             info = quote.get('info', {})
+            if info.get('isETFSec'):
+                return self.fetch_etf_data(symbol, quote)
             metadata = quote.get('metadata', {})
             price_info = quote.get('priceInfo', {})
             security_info = quote.get('securityInfo', {})
@@ -46,7 +52,7 @@ class DataFetcher:
             # Calculate total traded volume from preopen data if available
             total_volume = preopen.get('totalTradedVolume')
             
-            return MarketData(
+            return StockData(
                 symbol=symbol,
                 symbol_type=SymbolType.EQUITY,
                 
@@ -100,69 +106,212 @@ class DataFetcher:
             log(f"PRATIK: Error fetching equity data: {e}")
             return None
     
-    def fetch_index_data(self, symbol: str) -> Optional[MarketData]:
-        """Fetch index data using jugaad-data."""
+    def fetch_index_data(self, symbol: str) -> Optional[IndexData]:
+        """Fetch index data using jugaad-data live_index API."""
         try:
-            quote = self.nse.index_quote(symbol)
-            if not quote or 'lastPrice' not in quote:
+            # Use live_index API for comprehensive index data
+            response = self.nse.live_index(symbol)
+            log(f"PRATIK: Index Data for symbol {symbol}: {response}")
+            
+            if not response or 'data' not in response or not response['data']:
+                log(f"PRATIK: Index Data: Invalid response")
                 return None
             
-            return MarketData(
+            # Extract data from response
+            index_data = response['data'][0]  # Main index data
+            advance_info = response.get('advance', {})
+            market_status = response.get('marketStatus', {})
+            
+            return IndexData(
                 symbol=symbol,
                 symbol_type=SymbolType.INDEX,
-                current_price=quote.get('lastPrice'),
-                open_price=quote.get('open'),
-                high_price=quote.get('dayHigh'),
-                low_price=quote.get('dayLow'),
-                previous_close=quote.get('previousClose'),
-                change_percent=quote.get('pChange'),
-                volume=quote.get('totalTradedVolume'),
-                value=quote.get('totalTradedValue'),
-                last_updated=datetime.now().isoformat(),
+                
+                # Price information
+                current_price=index_data.get('lastPrice'),
+                open_price=index_data.get('open'),
+                high_price=index_data.get('dayHigh'),
+                low_price=index_data.get('dayLow'),
+                previous_close=index_data.get('previousClose'),
+                change=index_data.get('change'),
+                change_percent=index_data.get('pChange'),
+                
+                # Volume information
+                volume=index_data.get('totalTradedVolume'),
+                value=index_data.get('totalTradedValue'),
+                
+                # Index-specific price information
+                year_high=index_data.get('yearHigh'),
+                year_low=index_data.get('yearLow'),
+                
+                # Index composition
+                advances=int(advance_info.get('advances', 0)) if advance_info.get('advances') else None,
+                declines=int(advance_info.get('declines', 0)) if advance_info.get('declines') else None,
+                unchanged=int(advance_info.get('unchanged', 0)) if advance_info.get('unchanged') else None,
+                
+                # Performance metrics
+                percent_change_365d=index_data.get('perChange365d'),
+                percent_change_30d=index_data.get('perChange30d'),
+                near_week_high=index_data.get('nearWKH'),
+                near_week_low=index_data.get('nearWKL'),
+                
+                # Market status
+                market_status=market_status.get('marketStatus'),
+                market_status_message=market_status.get('marketStatusMessage'),
+                
+                # Index metadata
+                index_name=response.get('name') or index_data.get('symbol'),
+                total_market_cap=index_data.get('ffmc'),
+                
+                # Metadata
+                last_updated=index_data.get('lastUpdateTime') or response.get('timestamp') or datetime.now().isoformat(),
+                raw_data=response
+            )
+        except Exception as e:
+            log(f"PRATIK: Error fetching index data: {e}")
+            return None
+    
+    def fetch_etf_data(self, symbol: str, stock_quote: Optional[dict] = None) -> Optional[ETFData]:
+        """Fetch ETF data using jugaad-data stock_quote API."""
+        try:
+            # Fetch ETF data (ETFs trade like stocks but have additional NAV info)
+            quote = stock_quote if stock_quote else self.nse.stock_quote(symbol)
+            log(f"PRATIK: ETF Data for symbol {symbol}: {quote}")
+            
+            if not quote or 'priceInfo' not in quote:
+                log(f"PRATIK: ETF Data: {quote} is None or missing priceInfo")
+                return None
+            
+            # Extract nested data structures
+            info = quote.get('info', {})
+            metadata = quote.get('metadata', {})
+            price_info = quote.get('priceInfo', {})
+            security_info = quote.get('securityInfo', {})
+            industry_info = quote.get('industryInfo', {})
+            intraday = price_info.get('intraDayHighLow', {})
+            week_hl = price_info.get('weekHighLow', {})
+            preopen = quote.get('preOpenMarket', {})
+            
+            # Extract NAV (iNavValue) from priceInfo - specific to ETFs
+            nav = None
+            if price_info.get('iNavValue'):
+                try:
+                    nav = float(price_info.get('iNavValue'))
+                except (ValueError, TypeError):
+                    nav = None
+            
+            # Calculate total traded volume
+            total_volume = preopen.get('totalTradedVolume')
+            
+            # Get current price for premium/discount calculation
+            current_price = price_info.get('lastPrice')
+            
+            # Calculate premium/discount if we have both NAV and current price
+            premium_discount = None
+            if nav and current_price:
+                premium_discount = calculate_etf_premium(nav, current_price)
+            
+            return ETFData(
+                symbol=symbol,
+                symbol_type=SymbolType.ETF,
+                
+                # Common price information
+                current_price=current_price,
+                open_price=price_info.get('open'),
+                high_price=intraday.get('max'),
+                low_price=intraday.get('min'),
+                previous_close=price_info.get('previousClose'),
+                change=price_info.get('change'),
+                change_percent=price_info.get('pChange'),
+                
+                # Volume information
+                volume=total_volume,
+                value=None,  # Not directly available in this response
+                
+                # Stock-like characteristics
+                close_price=price_info.get('close'),
+                vwap=price_info.get('vwap'),
+                lower_circuit=float(price_info.get('lowerCP', 0)) if price_info.get('lowerCP') else None,
+                upper_circuit=float(price_info.get('upperCP', 0)) if price_info.get('upperCP') else None,
+                week_high=week_hl.get('max'),
+                week_low=week_hl.get('min'),
+                week_high_date=week_hl.get('maxDate'),
+                week_low_date=week_hl.get('minDate'),
+                
+                # Fund characteristics (ETF-specific)
+                nav=nav,
+                premium_discount=premium_discount,
+                
+                # ETF information
+                company_name=info.get('companyName'),
+                isin=info.get('isin') or metadata.get('isin'),
+                underlying_index=None,  # Not available in this response
+                industry=industry_info.get('basicIndustry') or metadata.get('industry'),
+                sector=industry_info.get('sector'),
+                
+                # Trading information
+                is_fno=info.get('isFNOSec'),
+                is_slb=security_info.get('slb') == 'Yes' if security_info.get('slb') else None,
+                total_buy_quantity=preopen.get('totalBuyQuantity'),
+                total_sell_quantity=preopen.get('totalSellQuantity'),
+                
+                # ETF-specific details
+                face_value=security_info.get('faceValue'),
+                issued_size=security_info.get('issuedSize'),
+                listing_date=info.get('listingDate'),
+                is_etf_sec=info.get('isETFSec'),
+                
+                # Price band information
+                price_band_percent=price_info.get('pPriceBand'),
+                tick_size=price_info.get('tickSize'),
+                
+                # Metadata
+                last_updated=metadata.get('lastUpdateTime') or datetime.now().isoformat(),
                 raw_data=quote
             )
-        except Exception as e:
-            return None
-    
-    def fetch_etf_data(self, symbol: str, scheme_code: Optional[str] = None) -> Optional[MarketData]:
-        """Fetch ETF data combining jugaad-data and MFAPI."""
-        try:
-            # First try to get market data from jugaad-data
-            market_data = self.fetch_equity_data(symbol)
-            if not market_data:
-                return None
-            
-            # If we have a scheme code, fetch NAV from MFAPI
-            nav = None
-            if scheme_code:
-                nav = self._fetch_nav_from_mfapi(scheme_code)
-                if nav:
-                    market_data.nav = nav
-                    # Calculate premium/discount
-                    if market_data.current_price and nav:
-                        market_data.premium_discount = calculate_etf_premium(nav, market_data.current_price)
-            
-            market_data.symbol_type = SymbolType.ETF
-            return market_data
             
         except Exception as e:
+            log(f"PRATIK: Error fetching ETF data: {e}")
             return None
     
-    def fetch_mutual_fund_data(self, scheme_code: str) -> Optional[MarketData]:
+    def fetch_mutual_fund_data(self, scheme_code: str) -> Optional[MutualFundData]:
         """Fetch mutual fund data from MFAPI."""
         try:
-            nav_data = self._fetch_nav_from_mfapi(scheme_code)
-            if not nav_data:
+            url = f"https://api.mfapi.in/mf/{scheme_code}"
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            if 'data' not in data or not data['data']:
                 return None
             
-            return MarketData(
+            # Get the latest NAV
+            latest_data = data['data'][0]
+            nav = float(latest_data.get('nav', 0))
+            
+            # Extract fund metadata
+            meta = data.get('meta', {})
+            
+            return MutualFundData(
                 symbol=scheme_code,
                 symbol_type=SymbolType.MUTUAL_FUND,
-                nav=nav_data,
-                last_updated=datetime.now().isoformat()
+                
+                # Price information (NAV for mutual funds)
+                current_price=nav,
+                nav=nav,
+                
+                # Fund-specific information
+                scheme_name=meta.get('scheme_name'),
+                fund_house=meta.get('fund_house'),
+                scheme_type=meta.get('scheme_type'),
+                scheme_category=meta.get('scheme_category'),
+                
+                # Metadata
+                last_updated=latest_data.get('date') or datetime.now().isoformat(),
+                raw_data=data
             )
             
         except Exception as e:
+            log(f"PRATIK: Error fetching mutual fund data: {e}")
             return None
     
     def _fetch_nav_from_mfapi(self, scheme_code: str) -> Optional[float]:

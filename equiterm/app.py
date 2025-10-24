@@ -259,6 +259,49 @@ class EquitermApp(App):
         display: none;
     }
     
+    /* Error Message Modal */
+    #error-message-container {
+        width: 60;
+        height: 20;
+        background: $surface;
+        border: solid $error;
+        padding: 2;
+        align: center middle;
+        margin: 4 0;
+    }
+    
+    #error-content {
+        align: center middle;
+        width: 100%;
+        height: 100%;
+    }
+    
+    #error-icon {
+        text-align: center;
+        text-style: bold;
+        color: $error;
+        margin-bottom: 1;
+        content-align: center middle;
+    }
+    
+    #error-text {
+        text-align: center;
+        text-style: bold;
+        color: $error;
+        margin-bottom: 1;
+    }
+    
+    #error-symbol {
+        text-align: center;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+    
+    #error-hint {
+        text-align: center;
+        color: $text-muted;
+    }
+    
     /* Minimalistic button variants */
     Button.-primary {
         background: $surface;
