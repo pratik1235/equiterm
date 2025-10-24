@@ -39,26 +39,20 @@ def calculate_change_percent(current: float, previous: float) -> float:
 
 def format_currency(value: Optional[float], currency: str = "₹") -> str:
     """
-    Format currency value with proper formatting.
+    Format currency value with exact numbers and 2 decimal places.
     
     Args:
         value: Currency value to format
         currency: Currency symbol
         
     Returns:
-        Formatted currency string
+        Formatted currency string with comma separators
     """
     if value is None:
         return "N/A"
     
-    if value >= 1e7:  # 1 crore
-        return f"{currency}{value/1e7:.2f}Cr"
-    elif value >= 1e5:  # 1 lakh
-        return f"{currency}{value/1e5:.2f}L"
-    elif value >= 1e3:  # 1 thousand
-        return f"{currency}{value/1e3:.2f}K"
-    else:
-        return f"{currency}{value:.2f}"
+    # Format with 2 decimal places and comma separators
+    return f"{currency}{value:,.2f}"
 
 
 def format_percentage(value: Optional[float], decimals: int = 2) -> str:

@@ -70,20 +70,45 @@ class MarketData:
     high_price: Optional[float] = None
     low_price: Optional[float] = None
     previous_close: Optional[float] = None
+    close_price: Optional[float] = None
+    change: Optional[float] = None
     change_percent: Optional[float] = None
+    vwap: Optional[float] = None  # Volume Weighted Average Price
+    
+    # Price bands and limits
+    lower_circuit: Optional[float] = None
+    upper_circuit: Optional[float] = None
+    week_high: Optional[float] = None
+    week_low: Optional[float] = None
+    week_high_date: Optional[str] = None
+    week_low_date: Optional[str] = None
     
     # Volume information
     volume: Optional[int] = None
     value: Optional[float] = None
+    total_buy_quantity: Optional[int] = None
+    total_sell_quantity: Optional[int] = None
+    
+    # Company information
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    sector: Optional[str] = None
+    isin: Optional[str] = None
     
     # ETF/MF specific
     nav: Optional[float] = None
     premium_discount: Optional[float] = None
     
-    # Additional data
+    # Fundamental data
     market_cap: Optional[float] = None
     pe_ratio: Optional[float] = None
     dividend_yield: Optional[float] = None
+    face_value: Optional[float] = None
+    issued_size: Optional[int] = None
+    
+    # Trading information
+    is_fno: Optional[bool] = None  # Futures & Options available
+    is_slb: Optional[bool] = None  # Securities Lending & Borrowing
     
     # Metadata
     last_updated: Optional[str] = None

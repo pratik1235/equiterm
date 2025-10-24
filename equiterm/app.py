@@ -12,7 +12,7 @@ from .screens.main_menu import MainMenuScreen
 class EquitermApp(App):
     """Main Equiterm application."""
     
-    CSS = """
+    CSS = '''
     /* Global Styles - Minimalistic */
     Screen {
         background: $surface;
@@ -85,7 +85,7 @@ class EquitermApp(App):
     }
     
     #input-section {
-        height: 20%;
+        height: auto;
         border: solid $primary;
         margin-bottom: 1;
         padding: 1;
@@ -116,7 +116,7 @@ class EquitermApp(App):
     }
     
     #data-section {
-        height: 75%;
+        height: 1fr;
         border: solid $primary;
         padding: 1;
     }
@@ -177,7 +177,7 @@ class EquitermApp(App):
     }
     
     #symbols-table {
-        height: 40%;
+        height: 1fr;
         margin: 1 0;
     }
     
@@ -198,7 +198,7 @@ class EquitermApp(App):
     }
     
     #watchlist-section {
-        height: 30%;
+        height: auto;
         border: solid $primary;
         margin-bottom: 1;
         padding: 1;
@@ -220,7 +220,7 @@ class EquitermApp(App):
     }
     
     #data-section {
-        height: 65%;
+        height: 1fr;
         border: solid $primary;
         padding: 1;
     }
@@ -315,7 +315,7 @@ class EquitermApp(App):
     Select:focus {
         border: solid $accent;
     }
-    """
+    '''
     
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit"),
