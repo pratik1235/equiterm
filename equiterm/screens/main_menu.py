@@ -3,7 +3,7 @@ Main menu screen for Equiterm application.
 """
 
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical, Horizontal
+from textual.containers import Container, Vertical, Horizontal, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Button, Header, Footer, Static
 from textual.binding import Binding
@@ -14,6 +14,7 @@ class MainMenuScreen(Screen):
     
     BINDINGS = [
         Binding("q", "quit", "Quit"),
+        Binding("escape", "quit", "Quit"),
         Binding("f", "fetch_symbol", "Fetch Symbol"),
         Binding("w", "check_watchlists", "Watchlists"),
         Binding("c", "create_watchlist", "Create Watchlist"),
@@ -27,21 +28,35 @@ class MainMenuScreen(Screen):
         """Compose the main menu layout."""
         yield Header()
         
-        with Container(id="main-container"):
-            with Vertical(id="menu-container"):
-                yield Static("EquiTerm", id="app-title")
-                yield Static("Terminal Stock Market App", id="subtitle")
-                
-                with Vertical(id="menu-buttons"):
-                    yield Button("Fetch Symbol Information", id="fetch-symbol", variant="primary")
-                    yield Button("Check Watchlists", id="check-watchlists", variant="primary")
-                    yield Button("Create a Watchlist", id="create-watchlist", variant="primary")
-                    yield Button("Help (Keyboard Shortcuts)", id="help-button", variant="default")
-                
-                yield Static("", id="spacer")
-                yield Static("Use arrow keys to navigate, Enter to select, or press 'q' to quit", id="help-text")
+        with VerticalScroll(id="main-scroll", can_focus=True):
+            with Container(id="main-container"):
+                with Vertical(id="menu-container"):
+                    yield Static("EquiTerm", id="app-title")
+                    yield Static("Terminal Stock Market App", id="subtitle")
+                    
+                    with Vertical(id="menu-buttons"):
+                        yield Button("Fetch Symbol Information", id="fetch-symbol", variant="primary")
+                        yield Button("Check Watchlists", id="check-watchlists", variant="primary")
+                        yield Button("Create a Watchlist", id="create-watchlist", variant="primary")
+                        yield Button("Help (Keyboard Shortcuts)", id="help-button", variant="default")
+                    
+                    yield Static("", id="spacer")
+                    yield Static("Use arrow keys to navigate, Enter to select, or press 'q' to quit", id="help-text")
         
         yield Footer()
+    
+    def on_mount(self) -> None:
+        """Focus first button on mount."""
+        self.call_after_refresh(self._focus_first_button)
+    
+    def _focus_first_button(self) -> None:
+        """Focus the first button."""
+        try:
+            buttons = list(self.query("Button"))
+            if buttons:
+                buttons[0].focus()
+        except Exception:
+            pass
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press events."""

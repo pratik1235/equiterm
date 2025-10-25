@@ -1,49 +1,104 @@
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical
+from textual.containers import Container, Vertical, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Button, Header, Footer, Static, Select
+from textual.widgets import Button, Header, Footer, Static, ListView, ListItem
 from textual.binding import Binding
+from textual import log
 
 from ..services.storage import storage
 from ..models.watchlist import Symbol, SymbolType
 from ..utils.symbol_detector import symbol_detector
 
 class SelectWatchlistScreen(Screen):
+    """Screen for selecting a watchlist to add a symbol to."""
+    
     BINDINGS = [
         Binding("escape", "pop_screen", "Back"),
+        Binding("q", "pop_screen", "Back"),
     ]
+    
     def __init__(self, symbol: str):
         super().__init__()
         self.symbol = symbol
         self.symbol_type, self.scheme_code = symbol_detector.detect_symbol_type(symbol)
-        self.select_widget = None
+        self.watchlist_names = []
+    
     def compose(self) -> ComposeResult:
         yield Header()
-        with Container(id="select-watchlist-container"):
-            with Vertical():
-                yield Static(f"Add '{self.symbol}' to Watchlist", id="select-heading")
-                self.select_widget = Select([], id="watchlist-select")
-                yield self.select_widget
-                yield Button("Add to Selected Watchlist", id="add-to-list-btn", variant="primary")
-                yield Static("", id="select-status")
+        with VerticalScroll(id="select-main-scroll", can_focus=True):
+            with Container(id="select-watchlist-container"):
+                with Vertical():
+                    yield Static(f"Add '{self.symbol}' to Watchlist", id="select-heading")
+                    yield Static("Select a watchlist:", id="select-label")
+                    yield ListView(id="watchlist-listview")
+                    yield Static("", id="select-status")
         yield Footer()
+    
     def on_mount(self) -> None:
-        names = storage.list_watchlist_names()
-        self.select_widget.set_options([(n, n) for n in names] if names else [("No Watchlists", "")])
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "add-to-list-btn":
-            selected = self.select_widget.value
-            if not selected:
-                self.query_one("#select-status").update("Select a watchlist.")
-                return
-            wlist = storage.load_watchlist(selected)
-            if wlist:
-                # Add symbol and save
+        """Load watchlists and focus the list."""
+        self.watchlist_names = storage.list_watchlist_names()
+        
+        if not self.watchlist_names:
+            self.query_one("#select-status").update("No watchlists found. Create one first!")
+            return
+        
+        # Populate the list
+        listview = self.query_one("#watchlist-listview", ListView)
+        for name in self.watchlist_names:
+            watchlist = storage.load_watchlist(name)
+            if watchlist:
+                count = len(watchlist.symbols)
+                item_text = f"{name:30} | {count} symbols"
+                listview.append(ListItem(Static(item_text)))
+        
+        # Auto-focus the list
+        self.call_after_refresh(self._focus_list)
+    
+    def _focus_list(self) -> None:
+        """Focus the watchlist list."""
+        try:
+            listview = self.query_one("#watchlist-listview", ListView)
+            if listview.children and len(listview.children) > 0:
+                listview.focus()
+                self.query_one("#select-status").update("Use ↑↓ to navigate, Enter to add to watchlist")
+        except Exception as e:
+            log(f"Error focusing list: {e}")
+    
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Handle watchlist selection."""
+        if event.list_view.id == "watchlist-listview":
+            index = event.list_view.index
+            if 0 <= index < len(self.watchlist_names):
+                selected_name = self.watchlist_names[index]
+                self._add_to_watchlist(selected_name)
+    
+    def _add_to_watchlist(self, watchlist_name: str) -> None:
+        """Add the symbol to the selected watchlist."""
+        try:
+            watchlist = storage.load_watchlist(watchlist_name)
+            if watchlist:
+                # Create symbol object
                 symobj = Symbol(self.symbol, self.symbol_type, scheme_code=self.scheme_code)
-                wlist.add_symbol(symobj)
-                storage.save_watchlist(wlist)
-                self.query_one("#select-status").update(f"Added '{self.symbol}' to '{selected}'! Press Escape to go back.")
-                return
-            self.query_one("#select-status").update("Error: Could not load watchlist.")
+                
+                # Check if symbol already exists
+                if any(s.name == self.symbol for s in watchlist.symbols):
+                    self.query_one("#select-status").update(
+                        f"'{self.symbol}' is already in '{watchlist_name}'. Press Q/Escape to go back."
+                    )
+                    return
+                
+                # Add symbol and save
+                watchlist.add_symbol(symobj)
+                storage.save_watchlist(watchlist)
+                
+                self.query_one("#select-status").update(
+                    f"✅ Added '{self.symbol}' to '{watchlist_name}'! Press Q/Escape to go back."
+                )
+            else:
+                self.query_one("#select-status").update("Error: Could not load watchlist.")
+        except Exception as e:
+            log(f"Error adding to watchlist: {e}")
+            self.query_one("#select-status").update(f"Error: {str(e)}")
+    
     def action_pop_screen(self) -> None:
         self.app.pop_screen()

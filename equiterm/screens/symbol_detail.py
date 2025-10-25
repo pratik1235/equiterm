@@ -1,5 +1,5 @@
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical, Horizontal
+from textual.containers import Container, Vertical, Horizontal, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Button, Header, Footer, Static, DataTable, LoadingIndicator
 from textual.binding import Binding
@@ -16,6 +16,7 @@ from ..models.watchlist import (
 class SymbolDetailScreen(Screen):
     BINDINGS = [
         Binding("escape", "pop_screen", "Back"),
+        Binding("q", "pop_screen", "Back"),
         Binding("a", "add_to_watchlist", "Add to Watchlist"),
     ]
 
@@ -28,20 +29,21 @@ class SymbolDetailScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
         with Container(id="sym-detail-container"):
-            with Vertical():
-                yield Static(f"Symbol: {self.symbol}", id="symbol-heading")
-                self.data_table = DataTable(id="detail-table")
-                yield self.data_table
-                yield LoadingIndicator(id="detail-loading")
-                # Error message container (hidden by default)
-                with Container(id="error-message-container"):
-                    with Vertical(id="error-content"):
-                        yield Static("⚠️", id="error-icon")
-                        yield Static("No data found for this symbol", id="error-text")
-                        yield Static(f"Symbol: {self.symbol}", id="error-symbol")
-                        yield Static("Please check the symbol name and try again.", id="error-hint")
-                with Horizontal(id="detail-button-row"):
-                    yield Button("Add to Watchlist", id="add-watchlist-button", variant="primary")
+            with VerticalScroll(id="detail-main-scroll", can_focus=True):
+                with Vertical():
+                    yield Static(f"Symbol: {self.symbol}", id="symbol-heading")
+                    self.data_table = DataTable(id="detail-table")
+                    yield self.data_table
+                    yield LoadingIndicator(id="detail-loading")
+                    # Error message container (hidden by default)
+                    with Container(id="error-message-container"):
+                        with Vertical(id="error-content"):
+                            yield Static("⚠️", id="error-icon")
+                            yield Static("No data found for this symbol", id="error-text")
+                            yield Static(f"Symbol: {self.symbol}", id="error-symbol")
+                            yield Static("Please check the symbol name and try again.", id="error-hint")
+                    with Horizontal(id="detail-button-row"):
+                        yield Button("Add to Watchlist", id="add-watchlist-button", variant="primary")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -50,6 +52,17 @@ class SymbolDetailScreen(Screen):
         self.query_one("#error-message-container").display = False  # Hide error by default
         self._update_watchlist_button()
         self.set_timer(0.1, self.load_symbol_data)  # Defer to ensure render
+        
+        # Auto-focus the scroll container
+        self.call_after_refresh(self._focus_scroll)
+    
+    def _focus_scroll(self) -> None:
+        """Focus the scroll container."""
+        try:
+            scroll = self.query_one("#detail-main-scroll")
+            scroll.focus()
+        except Exception:
+            pass
 
     def _update_watchlist_button(self) -> None:
         """Disable 'Add to Watchlist' button if no watchlists exist."""

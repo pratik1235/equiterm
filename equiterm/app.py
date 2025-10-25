@@ -103,6 +103,40 @@ class EquitermApp(App):
         margin-top: 1;
     }
     
+    /* Search Results Styles */
+    #results-section {
+        height: auto;
+        max-height: 30;
+        border: solid $primary;
+        padding: 1;
+        margin-top: 1;
+    }
+    
+    #results-list {
+        height: auto;
+        max-height: 25;
+        background: $surface;
+    }
+    
+    #results-list > ListItem {
+        height: 1;
+        padding: 0 1;
+    }
+    
+    #results-list > ListItem:hover {
+        background: $primary 20%;
+    }
+    
+    #results-list > ListItem.-selected {
+        background: $primary;
+    }
+    
+    #search-status {
+        color: $text-muted;
+        margin-top: 1;
+        text-align: center;
+    }
+    
     #button-row {
         height: 3;
         margin-top: 1;
@@ -139,55 +173,88 @@ class EquitermApp(App):
         padding: 1;
     }
     
-    #form-section {
-        height: 100%;
+    #name-section {
+        height: auto;
         border: solid $primary;
         padding: 1;
+        margin-bottom: 1;
     }
     
     #form-title {
         text-style: bold;
         color: $primary;
         text-align: center;
-        margin-bottom: 2;
+        margin-bottom: 1;
     }
     
-    #name-label, #symbol-section-title, #symbols-title {
+    #name-label, #search-title, #symbols-title {
         text-style: bold;
         color: $primary;
-        margin: 1 0;
+        margin-bottom: 1;
     }
     
-    #symbol-inputs {
-        height: 3;
-        margin: 1 0;
+    #search-section {
+        height: auto;
+        border: solid $primary;
+        padding: 1;
+        margin-bottom: 1;
     }
     
-    #symbol-inputs Input {
-        margin-right: 1;
+    #search-results-section {
+        height: auto;
+        max-height: 15;
+        border: solid $primary;
+        padding: 1;
+        margin-top: 1;
     }
     
-    #symbol-buttons {
-        height: 3;
-        margin: 1 0;
+    #search-results-list {
+        height: auto;
+        max-height: 12;
+        background: $surface;
     }
     
-    #symbol-buttons Button {
-        margin-right: 1;
+    #search-results-list > ListItem {
+        height: 1;
+        padding: 0 1;
+    }
+    
+    #search-results-list > ListItem:hover {
+        background: $primary 20%;
+    }
+    
+    #search-results-list > ListItem.-selected {
+        background: $primary;
+    }
+    
+    #symbols-section {
+        height: auto;
+        max-height: 20;
+        border: solid $primary;
+        padding: 1;
+        margin-bottom: 1;
     }
     
     #symbols-table {
-        height: 1fr;
-        margin: 1 0;
+        height: auto;
+        max-height: 15;
+        margin-top: 1;
     }
     
     #action-buttons {
         height: 3;
-        margin-top: 1;
+        margin-bottom: 1;
     }
     
     #action-buttons Button {
         margin-right: 1;
+        min-width: 20;
+    }
+    
+    #status-text {
+        text-align: center;
+        margin-top: 1;
+        padding: 1;
     }
     
     /* Watchlist View Screen Styles */
@@ -197,42 +264,57 @@ class EquitermApp(App):
         padding: 1;
     }
     
-    #watchlist-section {
-        height: auto;
+    #watchlist-list-section {
+        height: 100%;
         border: solid $primary;
-        margin-bottom: 1;
         padding: 1;
     }
     
-    #select-label {
+    #watchlist-title, #detail-title {
         text-style: bold;
         color: $primary;
+        text-align: center;
         margin-bottom: 1;
     }
     
-    #action-buttons {
-        height: 3;
-        margin: 1 0;
-    }
-    
-    #action-buttons Button {
-        margin-right: 1;
-    }
-    
-    #data-section {
+    #watchlist-scroll, #symbol-scroll {
         height: 1fr;
         border: solid $primary;
         padding: 1;
+        margin: 1 0;
     }
     
-    #data-title {
-        text-style: bold;
-        color: $primary;
-        margin-bottom: 1;
+    #watchlist-listview {
+        height: auto;
     }
     
-    #data-table {
+    #watchlist-listview > ListItem {
+        height: 1;
+        padding: 0 1;
+    }
+    
+    #watchlist-listview > ListItem:hover {
+        background: $primary 20%;
+    }
+    
+    #watchlist-listview > ListItem.-selected {
+        background: $primary;
+    }
+    
+    #symbol-detail-section {
         height: 100%;
+        border: solid $primary;
+        padding: 1;
+    }
+    
+    #symbol-table {
+        height: auto;
+    }
+    
+    #watchlist-status, #symbol-status {
+        text-align: center;
+        color: $text-muted;
+        margin-top: 1;
     }
     
     /* Minimalistic color coding for financial data */
@@ -357,6 +439,106 @@ class EquitermApp(App):
     
     Select:focus {
         border: solid $accent;
+    }
+    
+    /* Help Screen Styles */
+    #help-container {
+        height: 100%;
+        width: 100%;
+        padding: 1;
+    }
+    
+    #help-scroll {
+        height: 100%;
+        border: solid $primary;
+        padding: 1;
+    }
+    
+    #help-title {
+        text-style: bold;
+        color: $primary;
+        text-align: center;
+        margin-bottom: 1;
+        padding: 1;
+    }
+    
+    .section-title {
+        text-style: bold;
+        color: $accent;
+        margin-top: 1;
+        margin-bottom: 1;
+    }
+    
+    .shortcuts-table {
+        height: auto;
+        margin-bottom: 1;
+        border: solid $primary;
+    }
+    
+    .shortcuts-table > .datatable--header {
+        background: $primary;
+        color: $text;
+        text-style: bold;
+    }
+    
+    .shortcuts-table > .datatable--cursor {
+        background: $accent 30%;
+    }
+    
+    #help-footer {
+        text-align: center;
+        color: $text-muted;
+        margin-top: 2;
+        padding: 1;
+    }
+    
+    .spacer {
+        height: 1;
+    }
+    
+    /* Select Watchlist Screen Styles */
+    #select-watchlist-container {
+        height: 100%;
+        padding: 1;
+    }
+    
+    #select-heading {
+        text-style: bold;
+        color: $primary;
+        text-align: center;
+        margin-bottom: 1;
+    }
+    
+    #select-label {
+        color: $accent;
+        margin-bottom: 1;
+        margin-top: 1;
+    }
+    
+    #watchlist-listview {
+        height: auto;
+        min-height: 10;
+        border: solid $primary;
+        padding: 1;
+    }
+    
+    #watchlist-listview > ListItem {
+        height: 1;
+        padding: 0 1;
+    }
+    
+    #watchlist-listview > ListItem:hover {
+        background: $primary 20%;
+    }
+    
+    #watchlist-listview > ListItem.-selected {
+        background: $primary;
+    }
+    
+    #select-status {
+        text-align: center;
+        color: $text-muted;
+        margin-top: 1;
     }
     '''
     
