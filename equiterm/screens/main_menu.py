@@ -3,7 +3,7 @@ Main menu screen for Equiterm application.
 """
 
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical, Horizontal, VerticalScroll
+from textual.containers import Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Button, Header, Footer, Static
 from textual.binding import Binding
@@ -24,30 +24,33 @@ class MainMenuScreen(Screen):
         Binding("enter", "activate_focused", "Activate"),
     ]
     
+    def __init__(self):
+        super().__init__()
+    
     def compose(self) -> ComposeResult:
         """Compose the main menu layout."""
         yield Header()
         
         with VerticalScroll(id="main-scroll", can_focus=True):
-            with Container(id="main-container"):
-                with Vertical(id="menu-container"):
-                    yield Static("EquiTerm", id="app-title")
-                    yield Static("Terminal Stock Market App", id="subtitle")
-                    
-                    with Vertical(id="menu-buttons"):
-                        yield Button("Fetch Symbol Information", id="fetch-symbol", variant="primary")
-                        yield Button("Check Watchlists", id="check-watchlists", variant="primary")
-                        yield Button("Create a Watchlist", id="create-watchlist", variant="primary")
-                        yield Button("Help (Keyboard Shortcuts)", id="help-button", variant="default")
-                    
-                    yield Static("", id="spacer")
-                    yield Static("Use arrow keys to navigate, Enter to select, or press 'q' to quit", id="help-text")
+            with Vertical(id="menu-container"):
+                yield Static("EquiTerm", id="app-title")
+                yield Static("Terminal Stock Market App", id="subtitle")
+                
+                with Vertical(id="menu-buttons"):
+                    yield Button("Fetch Symbol Information", id="fetch-symbol", variant="primary")
+                    yield Button("Check Watchlists", id="check-watchlists", variant="primary")
+                    yield Button("Create a Watchlist", id="create-watchlist", variant="primary")
+                    yield Button("Help (Keyboard Shortcuts)", id="help-button", variant="default")
+                
+                yield Static("", id="spacer")
+                yield Static("Use arrow keys to navigate, Enter to select, or press 'q' to quit", id="help-text")
         
         yield Footer()
     
     def on_mount(self) -> None:
         """Focus first button on mount."""
         self.call_after_refresh(self._focus_first_button)
+    
     
     def _focus_first_button(self) -> None:
         """Focus the first button."""
@@ -71,15 +74,16 @@ class MainMenuScreen(Screen):
         elif button_id == "help-button":
             self.action_show_help()
     
+    
     def action_fetch_symbol(self) -> None:
         """Navigate to fetch symbol screen."""
         from .fetch_symbol import FetchSymbolScreen
         self.app.push_screen(FetchSymbolScreen())
     
     def action_check_watchlists(self) -> None:
-        """Navigate to watchlist view screen."""
-        from .watchlist_view import WatchlistViewScreen
-        self.app.push_screen(WatchlistViewScreen())
+        """Navigate to watchlist list screen."""
+        from .watchlist_list_screen import WatchlistListScreen
+        self.app.push_screen(WatchlistListScreen())
     
     def action_create_watchlist(self) -> None:
         """Navigate to create watchlist screen."""
@@ -90,6 +94,7 @@ class MainMenuScreen(Screen):
         """Navigate to help screen."""
         from .help_screen import HelpScreen
         self.app.push_screen(HelpScreen())
+    
     
     def action_quit(self) -> None:
         """Quit the application."""
@@ -135,3 +140,4 @@ class MainMenuScreen(Screen):
                 self.action_create_watchlist()
             elif focused.id == "help-button":
                 self.action_show_help()
+    

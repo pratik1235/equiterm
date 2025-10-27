@@ -3,17 +3,17 @@ Data fetching service using jugaad-data and MFAPI.
 """
 
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from jugaad_data.nse import NSELive
+import yfinance as yf
 
 from textual import log
 from ..models.watchlist import (
     MarketData, StockData, IndexData, ETFData, MutualFundData, SymbolType
 )
 from ..utils.calculations import calculate_etf_premium, calculate_change_percent
-
 
 class DataFetcher:
     """Service for fetching market data from various sources."""
@@ -166,7 +166,7 @@ class DataFetcher:
                 raw_data=response
             )
         except Exception as e:
-            log(f"PRATIK: Error fetching index data: {e}")
+            log(f"Error fetching index data: {e}")
             return None
     
     def fetch_etf_data(self, symbol: str, stock_quote: Optional[dict] = None) -> Optional[ETFData]:
@@ -269,7 +269,7 @@ class DataFetcher:
             )
             
         except Exception as e:
-            log(f"PRATIK: Error fetching ETF data: {e}")
+            log(f"Error fetching ETF data: {e}")
             return None
     
     def fetch_mutual_fund_data(self, scheme_code: str) -> Optional[MutualFundData]:
@@ -359,6 +359,79 @@ class DataFetcher:
                     results[symbol] = data
         
         return results
+    
+    def fetch_ohlc_data(self, symbols: List[str]) -> Dict[str, Dict[str, float]]:
+        """
+        Get OHLC and Previous Close data for multiple Indian stocks using yfinance.
+        
+        Parameters:
+        symbols (list): List of stock symbols (e.g., ['RELIANCE', 'TCS'])
+        
+        Returns:
+        dict: Dictionary with symbols as keys and stock data as values
+        """
+        if not symbols:
+            return {}
+        
+        try:
+            # Append .NS to each symbol for NSE
+            nse_symbols = [symbol + '.NS' for symbol in symbols]
+            
+            # Download data for the last 2 days to get current and previous close
+            data = yf.download(nse_symbols, period='2d', progress=False)
+            
+            result = {}
+            
+            # Handle single stock vs multiple stocks
+            if len(symbols) == 1:
+                symbol = symbols[0]
+                try:
+                    latest_data = data.iloc[-1]  # Latest day
+                    previous_close = data['Close'].iloc[-2] if len(data) >= 2 else data['Close'].iloc[-1]
+                    
+                    result[symbol] = {
+                        'Open': round(latest_data['Open'], 2),
+                        'High': round(latest_data['High'], 2),
+                        'Low': round(latest_data['Low'], 2),
+                        'Close': round(latest_data['Close'], 2),
+                        'Previous Close': round(previous_close, 2)
+                    }
+                except Exception as e:
+                    log(f"Error processing {symbol}: {e}")
+                    result[symbol] = None
+            else:
+                # For multiple stocks
+                for symbol in symbols:
+                    try:
+                        nse_symbol = symbol + '.NS'
+                        
+                        # Get latest day data
+                        latest_open = data['Open'][nse_symbol].iloc[-1]
+                        latest_high = data['High'][nse_symbol].iloc[-1]
+                        latest_low = data['Low'][nse_symbol].iloc[-1]
+                        latest_close = data['Close'][nse_symbol].iloc[-1]
+                        
+                        # Get previous close
+                        if len(data) >= 2:
+                            previous_close = data['Close'][nse_symbol].iloc[-2]
+                        else:
+                            previous_close = latest_close
+                        
+                        result[symbol] = {
+                            'Open': round(latest_open, 2),
+                            'High': round(latest_high, 2),
+                            'Low': round(latest_low, 2),
+                            'Close': round(latest_close, 2),
+                            'Previous Close': round(previous_close, 2)
+                        }
+                    except Exception as e:
+                        log(f"Error processing {symbol}: {e}")
+                        result[symbol] = None
+            
+            return result
+        except Exception as e:
+            log(f"Error fetching stock data: {e}")
+            return {}
 
 
 

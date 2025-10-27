@@ -78,6 +78,7 @@ class JSONStorage(StorageInterface):
             symbol = Symbol(
                 name=symbol_data['name'],
                 symbol_type=SymbolType(symbol_data['symbol_type']),
+                full_name=symbol_data.get('full_name'),
                 scheme_code=symbol_data.get('scheme_code'),
                 mfapi_url=symbol_data.get('mfapi_url')
             )
@@ -87,7 +88,8 @@ class JSONStorage(StorageInterface):
             name=data['name'],
             symbols=symbols,
             created_at=data.get('created_at'),
-            updated_at=data.get('updated_at')
+            updated_at=data.get('updated_at'),
+            is_favorite=data.get('is_favorite', False)
         )
     
     def _watchlist_to_dict(self, watchlist: Watchlist) -> Dict:
@@ -97,6 +99,7 @@ class JSONStorage(StorageInterface):
             symbol_data = {
                 'name': symbol.name,
                 'symbol_type': symbol.symbol_type.value,
+                'full_name': symbol.full_name,
                 'scheme_code': symbol.scheme_code,
                 'mfapi_url': symbol.mfapi_url
             }
@@ -106,7 +109,8 @@ class JSONStorage(StorageInterface):
             'name': watchlist.name,
             'symbols': symbols_data,
             'created_at': watchlist.created_at,
-            'updated_at': watchlist.updated_at
+            'updated_at': watchlist.updated_at,
+            'is_favorite': watchlist.is_favorite
         }
     
     def save_watchlist(self, watchlist: Watchlist) -> bool:
@@ -155,6 +159,43 @@ class JSONStorage(StorageInterface):
         """List all watchlist names."""
         data = self._load_raw_data()
         return list(data.keys())
+    
+    def set_favorite_watchlist(self, name: str) -> bool:
+        """
+        Set a watchlist as favorite. 
+        Automatically unmarks any previously favorited watchlist.
+        Only one watchlist can be favorite at a time.
+        """
+        data = self._load_raw_data()
+        
+        if name not in data:
+            return False
+        
+        # Unmark all other watchlists as favorite
+        for watchlist_name in data.keys():
+            data[watchlist_name]['is_favorite'] = (watchlist_name == name)
+        
+        return self._save_raw_data(data)
+    
+    def get_favorite_watchlist(self) -> Optional[Watchlist]:
+        """Get the current favorite watchlist, if any."""
+        data = self._load_raw_data()
+        
+        for watchlist_data in data.values():
+            if watchlist_data.get('is_favorite', False):
+                return self._dict_to_watchlist(watchlist_data)
+        
+        return None
+    
+    def unset_favorite_watchlist(self, name: str) -> bool:
+        """Remove favorite status from a watchlist."""
+        data = self._load_raw_data()
+        
+        if name not in data:
+            return False
+        
+        data[name]['is_favorite'] = False
+        return self._save_raw_data(data)
 
 
 # Global storage instance

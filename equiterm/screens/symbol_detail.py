@@ -31,7 +31,7 @@ class SymbolDetailScreen(Screen):
         Binding("up", "focus_previous", "Previous", show=False),
     ]
 
-    def __init__(self, symbol: str):
+    def __init__(self, symbol: str, cached_etf_data=None):
         super().__init__()
         self.symbol = symbol
         self.symbol_type, self.scheme_code = symbol_detector.detect_symbol_type(symbol)
@@ -39,6 +39,7 @@ class SymbolDetailScreen(Screen):
         self.graph_widget = None
         self.historical_data = None
         self.current_data = None  # Store current MarketData for full_name extraction
+        self.cached_etf_data = cached_etf_data  # Cached ETF data from watchlist view
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -131,8 +132,13 @@ class SymbolDetailScreen(Screen):
     def load_symbol_data(self) -> None:
         self.data_table.clear()
         self.query_one("#detail-loading").display = True
-        # Try live fetch, fallback to demo data
-        data = data_fetcher.fetch_symbol_data(self.symbol, self.symbol_type, self.scheme_code)
+        
+        # Use cached ETF data if available, otherwise fetch
+        if self.cached_etf_data and self.symbol_type == SymbolType.ETF:
+            data = self.cached_etf_data
+        else:
+            # Try live fetch, fallback to demo data
+            data = data_fetcher.fetch_symbol_data(self.symbol, self.symbol_type, self.scheme_code)
         
         log(
             f"PRATIK: Symbol: {self.symbol}, "
@@ -201,6 +207,10 @@ class SymbolDetailScreen(Screen):
                 return
             
             df = self.historical_data
+            
+            # Use all data points except the last one (29 out of 30)
+            if len(df) > 1:
+                df = df.iloc[:-1]  # Exclude last data point
             
             # Clear previous plot
             plt.clear_figure()
@@ -585,7 +595,16 @@ class SymbolDetailScreen(Screen):
             if data.nav is not None:
                 table.add_row("NAV", format_currency(data.nav))
             if data.premium_discount is not None:
-                table.add_row("Premium/Discount", format_percentage(data.premium_discount))
+                # Color highlight premium based on value (same as watchlist_view.py)
+                premium_str = format_percentage(data.premium_discount)
+                abs_premium = abs(data.premium_discount)
+                if abs_premium > 10:
+                    premium_text = Text(premium_str, style="bold red")
+                elif abs_premium >= 5:
+                    premium_text = Text(premium_str, style="bold yellow")
+                else:
+                    premium_text = Text(premium_str, style="bold green")
+                table.add_row("Premium/Discount", premium_text)
         
         # Circuit Limits & Range
         if data.lower_circuit or data.upper_circuit or data.week_high or data.week_low:
@@ -628,11 +647,12 @@ class SymbolDetailScreen(Screen):
             table.add_row("", "")
             table.add_row("📊 ETF DETAILS", "")
             table.add_row("", "")
-            if data.face_value is not None:
+
+            if data.face_value is not None and isinstance(data.face_value, (int, float)):
                 table.add_row("Face Value", format_currency(data.face_value))
-            if data.issued_size is not None:
+            if data.issued_size is not None and isinstance(data.face_value, (int, float)):
                 table.add_row("Issued Size", f"{data.issued_size:,} units")
-            if data.tick_size is not None:
+            if data.tick_size is not None and isinstance(data.face_value, (int, float)):
                 table.add_row("Tick Size", format_currency(data.tick_size))
         
         # Trading Information

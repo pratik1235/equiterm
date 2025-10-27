@@ -1,11 +1,11 @@
 """
-Watchlist view screen with list selection and symbol navigation.
+Watchlist list screen with favorite watchlist display.
 """
 
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical, VerticalScroll, Horizontal
+from textual.containers import Container, Vertical, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Static, ListItem, ListView, DataTable, Button
+from textual.widgets import Header, Footer, Static, DataTable
 from textual.binding import Binding
 from textual import log, events
 from textual.events import Click
@@ -16,8 +16,8 @@ from ..services.symbol_search import symbol_search_service
 from ..services.data_fetcher import data_fetcher
 
 
-class WatchlistViewScreen(Screen):
-    """Screen for viewing watchlists and navigating to symbols."""
+class WatchlistListScreen(Screen):
+    """Screen for viewing watchlist list and favorite watchlist."""
     
     BINDINGS = [
         Binding("escape", "pop_screen", "Back"),
@@ -28,13 +28,10 @@ class WatchlistViewScreen(Screen):
     def __init__(self):
         super().__init__()
         self.watchlists = []
-        self.current_watchlist = None
-        self.current_symbols = []
-        self.view_mode = "list"  # "list" or "detail"
         self.etf_data_cache = {}  # Cache ETF data to avoid redundant API calls
     
     def compose(self) -> ComposeResult:
-        """Compose the watchlist view screen."""
+        """Compose the watchlist list screen."""
         yield Header()
         
         with VerticalScroll(id="main-watchlist-scroll", can_focus=False):
@@ -53,13 +50,6 @@ class WatchlistViewScreen(Screen):
                     with VerticalScroll(id="favorite-scroll", can_focus=True):
                         yield DataTable(id="favorite-table")
                     yield Static("", id="favorite-status")
-                
-                # Symbol Detail View (hidden initially)
-                with Vertical(id="symbol-detail-section"):
-                    yield Static("", id="detail-title")
-                    with VerticalScroll(id="symbol-scroll", can_focus=True):
-                        yield DataTable(id="symbol-table")
-                    yield Static("", id="symbol-status")
         
         yield Footer()
     
@@ -69,22 +59,6 @@ class WatchlistViewScreen(Screen):
         watchlist_table = self.query_one("#watchlist-table", DataTable)
         watchlist_table.add_columns("Watchlist Name", "Symbols", "Favorite", "Delete")
         watchlist_table.cursor_type = "cell"  # Enable cell navigation
-        
-        # Setup symbol table columns with OHLC data, NAV, and ETF Premium
-        symbol_table = self.query_one("#symbol-table", DataTable)
-        symbol_table.add_columns(
-            "Symbol",
-            "Type",
-            "Name",  # Full name column - will not be truncated
-            "Open",
-            "High",
-            "Low",
-            "Close",
-            "Prev Close",
-            "NAV",
-            "ETF Premium"
-        )
-        symbol_table.cursor_type = "row"
         
         # Setup favorite table columns
         favorite_table = self.query_one("#favorite-table", DataTable)
@@ -101,9 +75,6 @@ class WatchlistViewScreen(Screen):
             "ETF Premium"
         )
         favorite_table.cursor_type = "row"
-        
-        # Hide detail section initially
-        self.query_one("#symbol-detail-section").display = False
         
         # Load and display favorite watchlist if it exists
         self._load_favorite_watchlist()
@@ -144,9 +115,6 @@ class WatchlistViewScreen(Screen):
     def _load_favorite_watchlist(self) -> None:
         """Load and display favorite watchlist if it exists."""
         try:
-            from ..services.data_fetcher import data_fetcher
-            from ..services.symbol_search import symbol_search_service
-            
             favorite_watchlist = storage.get_favorite_watchlist()
             
             if favorite_watchlist:
@@ -177,10 +145,7 @@ class WatchlistViewScreen(Screen):
                 pass
     
     def _populate_favorite_table(self, symbols) -> None:
-        """Populate the favorite table with symbol data (same logic as watchlist_view.py)."""
-        from ..services.data_fetcher import data_fetcher
-        from ..services.symbol_search import symbol_search_service
-        
+        """Populate the favorite table with symbol data."""
         table = self.query_one("#favorite-table", DataTable)
         table.clear()
         
@@ -335,7 +300,7 @@ class WatchlistViewScreen(Screen):
             if 0 <= row_index < len(self.watchlists):
                 # Column 0 or 1: View watchlist (name or symbol count)
                 if col_index in [0, 1]:
-                    self._show_watchlist_detail(self.watchlists[row_index])
+                    self._navigate_to_watchlist_detail(self.watchlists[row_index])
                 # Column 2: Toggle favorite (heart button)
                 elif col_index == 2:
                     self._toggle_favorite(self.watchlists[row_index])
@@ -344,16 +309,9 @@ class WatchlistViewScreen(Screen):
                     self._delete_watchlist(self.watchlists[row_index])
     
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        """Handle row selection in symbol table and favorite table."""
-        if event.data_table.id == "symbol-table":
-            # Symbol table - navigate to symbol detail
-            row_index = event.cursor_row
-            if 0 <= row_index < len(self.current_symbols):
-                symbol = self.current_symbols[row_index]
-                self._navigate_to_symbol(symbol.name)
-        elif event.data_table.id == "favorite-table":
-            # Favorite destination - navigate to symbol detail
-            from ..services.storage import storage
+        """Handle row selection in favorite table."""
+        if event.data_table.id == "favorite-table":
+            # Favorite table - navigate to symbol detail
             favorite_watchlist = storage.get_favorite_watchlist()
             if favorite_watchlist:
                 row_index = event.cursor_row
@@ -363,9 +321,6 @@ class WatchlistViewScreen(Screen):
     
     def action_delete_watchlist(self) -> None:
         """Delete the currently selected watchlist."""
-        if self.view_mode != "list":
-            return
-        
         try:
             table = self.query_one("#watchlist-table", DataTable)
             row_index = table.cursor_row
@@ -391,8 +346,9 @@ class WatchlistViewScreen(Screen):
                 log(f"Favorited watchlist: {watchlist_name}")
                 self._update_status(f"Set '{watchlist_name}' as favorite!", "watchlist")
             
-            # Reload watchlists to reflect changes
+            # Reload watchlists and favorite to reflect changes
             self._load_watchlists()
+            self._load_favorite_watchlist()
             
             # Focus the watchlist table after refresh
             self.call_after_refresh(self._focus_watchlist_table)
@@ -429,180 +385,11 @@ class WatchlistViewScreen(Screen):
             log(f"Error deleting watchlist: {e}")
             self._update_status(f"Failed to delete watchlist: {str(e)}", "watchlist")
     
-    def _show_watchlist_detail(self, watchlist) -> None:
-        """Show symbols in the selected watchlist."""
-        self.current_watchlist = watchlist
-        self.view_mode = "detail"
-        
-        # Hide list, show detail
-        self.query_one("#watchlist-list-section").display = False
-        self.query_one("#symbol-detail-section").display = True
-        
-        # Update title
-        title = self.query_one("#detail-title")
-        title.update(f"Watchlist: {watchlist.name} ({len(watchlist.symbols)} symbols)")
-        
-        # Populate symbol table
-        self._populate_symbol_table(watchlist.symbols)
-        
-        # Focus the table after refresh
-        self.call_after_refresh(self._focus_table)
-    
-    def _focus_table(self) -> None:
-        """Focus the symbol table."""
-        try:
-            table = self.query_one("#symbol-table", DataTable)
-            if table and table.row_count > 0:
-                table.focus()
-        except Exception as e:
-            log(f"Error focusing table: {e}")
-    
-    def _get_stock_data(self, symbols):
-        """
-        Get OHLC and Previous Close data for multiple Indian stocks using yfinance.
-        
-        Parameters:
-        symbols (list): List of stock symbols (e.g., ['RELIANCE', 'TCS'])
-        
-        Returns:
-        dict: Dictionary with symbols as keys and stock data as values
-        """
-        return data_fetcher.fetch_ohlc_data(symbols)
-    
-    def _populate_symbol_table(self, symbols) -> None:
-        """Populate the symbol table with watchlist symbols and OHLC data."""
-        table = self.query_one("#symbol-table", DataTable)
-        table.clear()
-        
-        self.current_symbols = symbols
-        self.etf_data_cache = {}  # Clear cache for new watchlist
-        
-        # Show loading message
-        self._update_status("Fetching price data...", "symbol")
-        
-        # Separate equity and ETF symbols
-        equity_symbols = [s.name for s in symbols if s.symbol_type.value == 'equity']
-        etf_symbols = [s for s in symbols if s.symbol_type.value == 'etf']
-        
-        # Fetch OHLC data for equity symbols using yfinance
-        equity_ohlc_data = data_fetcher.fetch_ohlc_data(equity_symbols) if equity_symbols else {}
-        
-        # Fetch ETF data using jugaad-data (includes NAV and premium)
-        for etf_symbol in etf_symbols:
-            try:
-                etf_data = data_fetcher.fetch_etf_data(etf_symbol.name)
-                if etf_data:
-                    self.etf_data_cache[etf_symbol.name] = etf_data
-            except Exception as e:
-                log(f"Error fetching ETF data for {etf_symbol.name}: {e}")
-        
-        for symbol in symbols:
-            # Get display name - use full_name if available, otherwise try search
-            display_name = symbol.full_name if hasattr(symbol, 'full_name') and symbol.full_name else symbol.name
-            if display_name == symbol.name:  # If no full_name, try search
-                try:
-                    results = symbol_search_service.search_symbols(symbol.name, max_results=1)
-                    if results and len(results) > 0:
-                        display_name = results[0]['name']
-                except:
-                    pass
-            
-            # Handle ETFs separately
-            if symbol.symbol_type.value == 'etf' and symbol.name in self.etf_data_cache:
-                etf_data = self.etf_data_cache[symbol.name]
-                
-                # Extract OHLC data from ETF data
-                open_price = etf_data.open_price
-                high_price = etf_data.high_price
-                low_price = etf_data.low_price
-                close_price = etf_data.close_price or etf_data.current_price
-                prev_close = etf_data.previous_close
-                nav = etf_data.nav
-                premium = etf_data.premium_discount
-                
-                # Prepare Close value with color highlighting
-                if close_price and prev_close:
-                    close_str = f"₹{close_price:.2f}"
-                    if close_price > prev_close:
-                        close_text = Text(close_str, style="bold green")
-                    elif close_price < prev_close:
-                        close_text = Text(close_str, style="bold red")
-                    else:
-                        close_text = close_str
-                else:
-                    close_text = "-"
-                
-                # Prepare Premium with color highlighting (cell background)
-                if premium is not None:
-                    premium_str = f"{premium:.2f}%"
-                    abs_premium = abs(premium)
-                    if abs_premium > 10:
-                        premium_text = Text(premium_str, style="bold red")
-                    elif abs_premium >= 5:
-                        premium_text = Text(premium_str, style="bold yellow")
-                    else:
-                        premium_text = Text(premium_str, style="bold green")
-                else:
-                    premium_text = "N/A"
-                
-                table.add_row(
-                    symbol.name,
-                    symbol.symbol_type.value.upper(),
-                    display_name,
-                    f"₹{open_price:.2f}" if open_price else "-",
-                    f"₹{high_price:.2f}" if high_price else "-",
-                    f"₹{low_price:.2f}" if low_price else "-",
-                    close_text,
-                    f"₹{prev_close:.2f}" if prev_close else "-",
-                    f"₹{nav:.2f}" if nav else "N/A",
-                    premium_text
-                )
-            
-            # Handle equities with yfinance data
-            elif symbol.symbol_type.value == 'equity' and symbol.name in equity_ohlc_data and equity_ohlc_data[symbol.name]:
-                data = equity_ohlc_data[symbol.name]
-                
-                # Prepare Close value with color highlighting
-                close_price = data['Close']
-                prev_close = data['Previous Close']
-                close_str = f"₹{close_price}"
-                
-                if close_price > prev_close:
-                    close_text = Text(close_str, style="bold green")
-                elif close_price < prev_close:
-                    close_text = Text(close_str, style="bold red")
-                else:
-                    close_text = close_str
-                
-                table.add_row(
-                    symbol.name,
-                    symbol.symbol_type.value.upper(),
-                    display_name,
-                    f"₹{data['Open']}",
-                    f"₹{data['High']}",
-                    f"₹{data['Low']}",
-                    close_text,
-                    f"₹{prev_close}",
-                    "N/A",  # NAV - not applicable for equity
-                    "N/A"   # Premium - not applicable for equity
-                )
-            else:
-                # No data available (index, mutual fund, or failed fetch)
-                table.add_row(
-                    symbol.name,
-                    symbol.symbol_type.value.upper(),
-                    display_name,
-                    "-",
-                    "-",
-                    "-",
-                    "-",
-                    "-",
-                    "N/A",
-                    "N/A"
-                )
-        
-        status = f"Loaded {len(symbols)} symbol(s). Press Enter to view details. Press Q/Escape to go back."
-        self._update_status(status, "symbol")
+    def _navigate_to_watchlist_detail(self, watchlist) -> None:
+        """Navigate to watchlist detail screen."""
+        from .watchlist_detail_screen import WatchlistDetailScreen
+        log(f"Navigating to watchlist detail: {watchlist.name}")
+        self.app.push_screen(WatchlistDetailScreen(watchlist_name=watchlist.name))
     
     def _navigate_to_symbol(self, symbol_name: str) -> None:
         """Navigate to symbol detail screen, passing cached ETF data if available."""
@@ -619,53 +406,55 @@ class WatchlistViewScreen(Screen):
         
         # Handle back navigation
         if event.key in ["q", "escape"]:
-            if self.view_mode == "detail":
-                # Go back to list view
-                event.prevent_default()
-                self._back_to_list()
-            else:
-                # Go back to main menu
-                self.action_pop_screen()
+            self.action_pop_screen()
             return
         
-        # Enhanced up/down navigation
-        # In list view mode, ListView handles its own navigation
-        # In detail view mode, DataTable handles its own navigation
-        # No special handling needed as Textual handles this automatically
+        # Handle navigation between watchlist table and favorite table
+        try:
+            watchlist_table = self.query_one("#watchlist-table", DataTable)
+            favorite_table = self.query_one("#favorite-table", DataTable)
+            favorite_section = self.query_one("#favorite-watchlist-section")
+            
+            # Only allow navigation if favorite section is visible
+            if not favorite_section.display:
+                return
+            
+            # Down arrow: Move from watchlist table to favorite table
+            if event.key == "down" and focused == watchlist_table:
+                # Check if we're at the last row
+                if watchlist_table.cursor_row == watchlist_table.row_count - 1:
+                    event.prevent_default()
+                    favorite_table.focus()
+                    favorite_table.scroll_visible()
+            
+            # Up arrow: Move from favorite table to watchlist table
+            elif event.key == "up" and focused == favorite_table:
+                # Check if we're at the first row
+                if favorite_table.cursor_row == 0:
+                    event.prevent_default()
+                    watchlist_table.focus()
+                    watchlist_table.scroll_visible()
+        except Exception as e:
+            log(f"Error in navigation: {e}")
     
     def on_click(self, event: Click) -> None:
         """Handle mouse clicks to focus widgets."""
         widget = self.get_widget_at(event.x, event.y)[0]
         
         # Focus clickable widgets
-        if isinstance(widget, (DataTable, Button)):
+        if isinstance(widget, DataTable):
             widget.focus()
-    
-    def _back_to_list(self) -> None:
-        """Go back to watchlist list view."""
-        self.view_mode = "list"
-        self.current_watchlist = None
-        self.current_symbols = []
-        
-        # Show list, hide detail
-        self.query_one("#watchlist-list-section").display = True
-        self.query_one("#symbol-detail-section").display = False
-        
-        # Focus the watchlist table
-        self.call_after_refresh(self._focus_watchlist_table)
-        
-        # Update status
-        self._update_status(f"Found {len(self.watchlists)} watchlist(s). Navigate with arrow keys, Enter to view.", "watchlist")
     
     def _update_status(self, message: str, section: str = "watchlist") -> None:
         """Update status message."""
         if section == "watchlist":
             status = self.query_one("#watchlist-status")
         else:
-            status = self.query_one("#symbol-status")
+            status = self.query_one("#favorite-status")
         
         status.update(message)
     
     def action_pop_screen(self) -> None:
         """Go back to main menu."""
         self.app.pop_screen()
+

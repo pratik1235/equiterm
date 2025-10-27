@@ -14,6 +14,7 @@ class SymbolSearchService:
         self.session = requests.Session()
         self.base_url = "https://www.nseindia.com"
         self.search_url = f"{self.base_url}/api/search/autocomplete"
+        # https://www.nseindia.com/api/search/autocomplete?q=RELIANCE
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json',

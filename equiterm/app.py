@@ -74,17 +74,82 @@ class EquitermApp(App):
     /*         Main Menu Styles         */
     /* ================================ */
     
-    #main-container {
-        height: 100%;
-        width: 100%;
+    #main-scroll {
         align: center middle;
     }
     
     #menu-container {
-        width: 50;
+        width: auto;
+        min-width: 50;
         height: auto;
         align: center middle;
         padding: 2;
+    }
+    
+    #favorite-container {
+        width: 1fr;
+        min-width: 60;
+        height: auto;
+        align: left top;
+        padding: 2;
+        border: round $accent 40%;
+        background: $surface-darken-1;
+    }
+    
+    #favorite-table {
+        height: auto;
+        width: 100%;
+    }
+    
+    #favorite-scroll {
+        height: auto;
+        max-height: 30;
+    }
+    
+    #favorite-title {
+        text-align: center;
+        text-style: bold;
+        color: $accent-lighten-1;
+        margin-bottom: 1;
+    }
+    
+    #favorite-watchlist-name {
+        text-align: center;
+        color: $text;
+        margin-bottom: 2;
+    }
+    
+    #favorite-symbols {
+        width: 100%;
+        height: auto;
+        align: center top;
+    }
+    
+    .favorite-symbol-btn {
+        width: 100%;
+        height: 3;
+        margin-bottom: 1;
+        background: $surface;
+        border: round $panel-lighten-2;
+        color: $text;
+        text-align: center;
+        
+        &:focus {
+            border: round $accent;
+            background: $accent 20%;
+            color: $accent-lighten-2;
+        }
+        
+        &:hover {
+            background: $accent 15%;
+            border: round $accent 70%;
+        }
+    }
+    
+    #favorite-status {
+        text-align: center;
+        color: $text-muted;
+        margin-top: 1;
     }
     
     #app-title {
@@ -312,16 +377,60 @@ class EquitermApp(App):
     }
     
     /* Watchlist View Screen Styles */
-    #watchlist-container {
+    #main-watchlist-scroll {
         height: 100%;
+        width: 100%;
+    }
+    
+    #watchlist-container {
+        height: auto;
         width: 100%;
         padding: 1;
     }
     
     #watchlist-list-section {
-        height: 100%;
+        height: auto;
         border: round $panel-lighten-2;
         padding: 1;
+        margin-bottom: 1;
+    }
+    
+    #favorite-watchlist-section {
+        height: auto;
+        border: round $accent 40%;
+        padding: 1;
+        margin-bottom: 1;
+        background: $surface-darken-1;
+    }
+    
+    #favorite-title {
+        text-align: center;
+        text-style: bold;
+        color: $accent-lighten-1;
+        margin-bottom: 1;
+    }
+
+    #favorite-watchlist-name {
+        text-align: center;
+        color: $text;
+        margin-bottom: 1;
+    }
+    
+    #favorite-scroll {
+        max-height: 30;
+        border: round $panel-lighten-2;
+        padding: 1;
+    }
+    
+    #favorite-table {
+        height: auto;
+        width: 100%;
+    }
+    
+    #favorite-status {
+        text-align: center;
+        color: $text-muted;
+        margin-top: 1;
     }
     
     #watchlist-title, #detail-title {
@@ -331,7 +440,15 @@ class EquitermApp(App):
         margin-bottom: 1;
     }
     
-    #watchlist-scroll, #symbol-scroll {
+    #watchlist-scroll {
+        height: auto;
+        max-height: 15;
+        border: round $panel-lighten-2;
+        padding: 1;
+        margin: 1 0;
+    }
+    
+    #symbol-scroll {
         height: 1fr;
         border: round $panel-lighten-2;
         padding: 1;

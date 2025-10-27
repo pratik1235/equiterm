@@ -37,6 +37,7 @@ class Watchlist:
     symbols: List[Symbol] = field(default_factory=list)
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    is_favorite: bool = False  # Only one watchlist can be favorite at a time
     
     def add_symbol(self, symbol: Symbol) -> None:
         """Add a symbol to the watchlist."""
