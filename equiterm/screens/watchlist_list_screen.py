@@ -76,14 +76,14 @@ class WatchlistListScreen(Screen):
         )
         favorite_table.cursor_type = "row"
         
-        # Load and display favorite watchlist if it exists
-        self._load_favorite_watchlist()
-        
-        # Load watchlists
+        # Load watchlists immediately (fast, no API calls)
         self._load_watchlists()
         
         # Focus the watchlist table after loading
         self.call_after_refresh(self._focus_watchlist_table)
+        
+        # Load favorite watchlist asynchronously (may involve API calls)
+        self.set_timer(0.1, self._load_favorite_watchlist_async)
     
     def _focus_watchlist_table(self) -> None:
         """Focus the watchlist table."""
@@ -112,8 +112,8 @@ class WatchlistListScreen(Screen):
         # Display in table
         self._display_watchlist_list()
     
-    def _load_favorite_watchlist(self) -> None:
-        """Load and display favorite watchlist if it exists."""
+    def _load_favorite_watchlist_async(self) -> None:
+        """Load and display favorite watchlist asynchronously (may involve API calls)."""
         try:
             favorite_watchlist = storage.get_favorite_watchlist()
             
@@ -125,12 +125,15 @@ class WatchlistListScreen(Screen):
                 name_widget = self.query_one("#favorite-watchlist-name")
                 name_widget.update(f"📋 {favorite_watchlist.name}")
                 
-                # Populate favorite table
+                # Show loading status
+                status_widget = self.query_one("#favorite-status")
+                status_widget.update("Loading price data...")
+                
+                # Populate favorite table (this may take time due to API calls)
                 self._populate_favorite_table(favorite_watchlist.symbols)
                 
-                # Update status
+                # Update status with final count
                 total = len(favorite_watchlist.symbols)
-                status_widget = self.query_one("#favorite-status")
                 status_widget.update(f"{total} symbol(s)")
             else:
                 # Hide favorite section if no favorite
@@ -346,9 +349,11 @@ class WatchlistListScreen(Screen):
                 log(f"Favorited watchlist: {watchlist_name}")
                 self._update_status(f"Set '{watchlist_name}' as favorite!", "watchlist")
             
-            # Reload watchlists and favorite to reflect changes
+            # Reload watchlists immediately
             self._load_watchlists()
-            self._load_favorite_watchlist()
+            
+            # Reload favorite watchlist asynchronously
+            self.set_timer(0.1, self._load_favorite_watchlist_async)
             
             # Focus the watchlist table after refresh
             self.call_after_refresh(self._focus_watchlist_table)
