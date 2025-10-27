@@ -96,7 +96,7 @@ class MainMenuScreen(Screen):
         self.app.exit()
     
     def action_focus_previous(self) -> None:
-        """Focus the previous button."""
+        """Focus the previous button and scroll into view."""
         buttons = list(self.query("Button"))
         if buttons:
             current = self.focused
@@ -104,11 +104,13 @@ class MainMenuScreen(Screen):
                 current_index = buttons.index(current)
                 prev_index = (current_index - 1) % len(buttons)
                 buttons[prev_index].focus()
+                buttons[prev_index].scroll_visible()
             else:
                 buttons[0].focus()
+                buttons[0].scroll_visible()
     
     def action_focus_next(self) -> None:
-        """Focus the next button."""
+        """Focus the next button and scroll into view."""
         buttons = list(self.query("Button"))
         if buttons:
             current = self.focused
@@ -116,8 +118,10 @@ class MainMenuScreen(Screen):
                 current_index = buttons.index(current)
                 next_index = (current_index + 1) % len(buttons)
                 buttons[next_index].focus()
+                buttons[next_index].scroll_visible()
             else:
                 buttons[0].focus()
+                buttons[0].scroll_visible()
     
     def action_activate_focused(self) -> None:
         """Activate the currently focused button."""

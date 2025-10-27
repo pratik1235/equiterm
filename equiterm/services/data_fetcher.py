@@ -29,7 +29,6 @@ class DataFetcher:
         """Fetch equity data using jugaad-data."""
         try:
             quote = self.nse.stock_quote(symbol)
-            
 
             log(f"PRATIK: Equity Data: {quote}")
             if not quote or 'priceInfo' not in quote:
@@ -360,6 +359,7 @@ class DataFetcher:
                     results[symbol] = data
         
         return results
+
 
 
 # Global data fetcher instance

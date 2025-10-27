@@ -88,6 +88,7 @@ class FetchSymbolScreen(Screen):
                     event.prevent_default()
                     list_view.focus()
                     list_view.index = 0
+                    list_view.scroll_visible()
         
         # Handle up arrow from results list
         elif isinstance(focused, ListView) and focused.id == "results-list":
@@ -95,7 +96,9 @@ class FetchSymbolScreen(Screen):
                 # If at the top of the list, move focus back to input
                 if focused.index == 0:
                     event.prevent_default()
-                    self.query_one(Input).focus()
+                    input_widget = self.query_one(Input)
+                    input_widget.focus()
+                    input_widget.scroll_visible()
 
     def _perform_search(self, query: str) -> None:
         """Perform symbol search and update results."""

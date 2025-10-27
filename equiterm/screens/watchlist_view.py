@@ -3,15 +3,21 @@ Watchlist view screen with list selection and symbol navigation.
 """
 
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical, VerticalScroll
+from textual.containers import Container, Vertical, VerticalScroll, Horizontal
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Static, ListItem, ListView, DataTable
+from textual.widgets import Header, Footer, Static, ListItem, ListView, DataTable, Button
 from textual.binding import Binding
 from textual import log, events
 from textual.events import Click
+from rich.text import Text
 
 from ..services.storage import storage
 from ..services.symbol_search import symbol_search_service
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 
 class WatchlistViewScreen(Screen):
@@ -20,6 +26,7 @@ class WatchlistViewScreen(Screen):
     BINDINGS = [
         Binding("escape", "pop_screen", "Back"),
         Binding("q", "pop_screen", "Back"),
+        Binding("d", "delete_watchlist", "Delete", show=False),
     ]
     
     def __init__(self):
@@ -38,7 +45,7 @@ class WatchlistViewScreen(Screen):
             with Vertical(id="watchlist-list-section"):
                 yield Static("Your Watchlists", id="watchlist-title")
                 with VerticalScroll(id="watchlist-scroll", can_focus=True):
-                    yield ListView(id="watchlist-listview")
+                    yield DataTable(id="watchlist-table")
                 yield Static("", id="watchlist-status")
             
             # Symbol Detail View (hidden initially)
@@ -52,9 +59,23 @@ class WatchlistViewScreen(Screen):
     
     def on_mount(self) -> None:
         """Initialize the screen."""
-        # Setup symbol table columns
+        # Setup watchlist table columns
+        watchlist_table = self.query_one("#watchlist-table", DataTable)
+        watchlist_table.add_columns("Watchlist Name", "Symbols", "Delete")
+        watchlist_table.cursor_type = "cell"  # Enable cell navigation
+        
+        # Setup symbol table columns with OHLC data
         symbol_table = self.query_one("#symbol-table", DataTable)
-        symbol_table.add_columns("Symbol", "Type", "Name")
+        symbol_table.add_columns(
+            "Symbol",
+            "Type",
+            "Name",  # Full name column - will not be truncated
+            "Open",
+            "High",
+            "Low",
+            "Close",
+            "Prev Close"
+        )
         symbol_table.cursor_type = "row"
         
         # Hide detail section initially
@@ -63,17 +84,17 @@ class WatchlistViewScreen(Screen):
         # Load watchlists
         self._load_watchlists()
         
-        # Focus the listview after loading
-        self.call_after_refresh(self._focus_listview)
+        # Focus the watchlist table after loading
+        self.call_after_refresh(self._focus_watchlist_table)
     
-    def _focus_listview(self) -> None:
-        """Focus the listview after mount."""
+    def _focus_watchlist_table(self) -> None:
+        """Focus the watchlist table."""
         try:
-            listview = self.query_one("#watchlist-listview", ListView)
-            if listview and listview.children and len(listview.children) > 0:
-                listview.focus()
+            table = self.query_one("#watchlist-table", DataTable)
+            if table and table.row_count > 0:
+                table.focus()
         except Exception as e:
-            log(f"Error focusing listview: {e}")
+            log(f"Error focusing watchlist table: {e}")
     
     def _load_watchlists(self) -> None:
         """Load and display all watchlists."""
@@ -90,28 +111,89 @@ class WatchlistViewScreen(Screen):
             if watchlist:
                 self.watchlists.append(watchlist)
         
-        # Display in list
+        # Display in table
         self._display_watchlist_list()
     
     def _display_watchlist_list(self) -> None:
-        """Display watchlists in ListView."""
-        listview = self.query_one("#watchlist-listview", ListView)
-        listview.clear()
+        """Display watchlists in DataTable."""
+        table = self.query_one("#watchlist-table", DataTable)
+        table.clear()
         
         for watchlist in self.watchlists:
             count = len(watchlist.symbols)
-            item_text = f"{watchlist.name:30} | {count} symbols"
-            listview.append(ListItem(Static(item_text)))
+            table.add_row(
+                watchlist.name,
+                str(count),
+                "🗑 Delete"
+            )
         
-        status_text = f"Found {len(self.watchlists)} watchlist(s). Select one to view symbols."
+        status_text = f"Found {len(self.watchlists)} watchlist(s). Navigate with arrow keys, Enter to view."
         self._update_status(status_text, "watchlist")
     
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        """Handle watchlist selection."""
-        if event.list_view.id == "watchlist-listview":
-            index = event.list_view.index
-            if 0 <= index < len(self.watchlists):
-                self._show_watchlist_detail(self.watchlists[index])
+    def on_data_table_cell_selected(self, event: DataTable.CellSelected) -> None:
+        """Handle cell selection in watchlist table."""
+        if event.data_table.id == "watchlist-table":
+            row_index = event.coordinate.row
+            col_index = event.coordinate.column
+            
+            if 0 <= row_index < len(self.watchlists):
+                # Column 0 or 1: View watchlist (name or symbol count)
+                if col_index in [0, 1]:
+                    self._show_watchlist_detail(self.watchlists[row_index])
+                # Column 2: Delete watchlist (delete button)
+                elif col_index == 2:
+                    self._delete_watchlist(self.watchlists[row_index])
+    
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Handle row selection in symbol table."""
+        if event.data_table.id == "symbol-table":
+            # Symbol table - navigate to symbol detail
+            row_index = event.cursor_row
+            if 0 <= row_index < len(self.current_symbols):
+                symbol = self.current_symbols[row_index]
+                self._navigate_to_symbol(symbol.name)
+    
+    def action_delete_watchlist(self) -> None:
+        """Delete the currently selected watchlist."""
+        if self.view_mode != "list":
+            return
+        
+        try:
+            table = self.query_one("#watchlist-table", DataTable)
+            row_index = table.cursor_row
+            
+            if 0 <= row_index < len(self.watchlists):
+                self._delete_watchlist(self.watchlists[row_index])
+        except Exception as e:
+            log(f"Error in delete action: {e}")
+    
+    def _delete_watchlist(self, watchlist) -> None:
+        """Delete the specified watchlist."""
+        try:
+            watchlist_name = watchlist.name
+            
+            # Delete from storage
+            storage.delete_watchlist(watchlist_name)
+            
+            # Remove from local list
+            self.watchlists = [w for w in self.watchlists if w.name != watchlist_name]
+            
+            # Refresh the display
+            if len(self.watchlists) > 0:
+                self._display_watchlist_list()
+                self._update_status(f"Deleted watchlist '{watchlist_name}'. {len(self.watchlists)} remaining.", "watchlist")
+                # Focus the watchlist table after deletion
+                self.call_after_refresh(self._focus_watchlist_table)
+            else:
+                # No watchlists left
+                table = self.query_one("#watchlist-table", DataTable)
+                table.clear()
+                self._update_status("No watchlists found. Create one first!", "watchlist")
+            
+            log(f"Deleted watchlist: {watchlist_name}")
+        except Exception as e:
+            log(f"Error deleting watchlist: {e}")
+            self._update_status(f"Failed to delete watchlist: {str(e)}", "watchlist")
     
     def _show_watchlist_detail(self, watchlist) -> None:
         """Show symbols in the selected watchlist."""
@@ -141,39 +223,155 @@ class WatchlistViewScreen(Screen):
         except Exception as e:
             log(f"Error focusing table: {e}")
     
+    def _get_stock_data(self, symbols):
+        """
+        Get OHLC and Previous Close data for multiple Indian stocks using yfinance.
+        
+        Parameters:
+        symbols (list): List of stock symbols (e.g., ['RELIANCE', 'TCS'])
+        
+        Returns:
+        dict: Dictionary with symbols as keys and stock data as values
+        """
+        if yf is None:
+            log("yfinance not available")
+            return {}
+        
+        if not symbols:
+            return {}
+        
+        try:
+            # Append .NS to each symbol for NSE
+            nse_symbols = [symbol + '.NS' for symbol in symbols]
+            
+            # Download data for the last 2 days to get current and previous close
+            data = yf.download(nse_symbols, period='2d', progress=False)
+            
+            result = {}
+            
+            # Handle single stock vs multiple stocks
+            if len(symbols) == 1:
+                symbol = symbols[0]
+                try:
+                    latest_data = data.iloc[-1]  # Latest day
+                    previous_close = data['Close'].iloc[-2] if len(data) >= 2 else data['Close'].iloc[-1]
+                    
+                    result[symbol] = {
+                        'Open': round(latest_data['Open'], 2),
+                        'High': round(latest_data['High'], 2),
+                        'Low': round(latest_data['Low'], 2),
+                        'Close': round(latest_data['Close'], 2),
+                        'Previous Close': round(previous_close, 2)
+                    }
+                except Exception as e:
+                    log(f"Error processing {symbol}: {e}")
+                    result[symbol] = None
+            else:
+                # For multiple stocks
+                for symbol in symbols:
+                    try:
+                        nse_symbol = symbol + '.NS'
+                        
+                        # Get latest day data
+                        latest_open = data['Open'][nse_symbol].iloc[-1]
+                        latest_high = data['High'][nse_symbol].iloc[-1]
+                        latest_low = data['Low'][nse_symbol].iloc[-1]
+                        latest_close = data['Close'][nse_symbol].iloc[-1]
+                        
+                        # Get previous close
+                        if len(data) >= 2:
+                            previous_close = data['Close'][nse_symbol].iloc[-2]
+                        else:
+                            previous_close = latest_close
+                        
+                        result[symbol] = {
+                            'Open': round(latest_open, 2),
+                            'High': round(latest_high, 2),
+                            'Low': round(latest_low, 2),
+                            'Close': round(latest_close, 2),
+                            'Previous Close': round(previous_close, 2)
+                        }
+                    except Exception as e:
+                        log(f"Error processing {symbol}: {e}")
+                        result[symbol] = None
+            
+            return result
+        except Exception as e:
+            log(f"Error fetching stock data: {e}")
+            return {}
+    
     def _populate_symbol_table(self, symbols) -> None:
-        """Populate the symbol table with watchlist symbols."""
+        """Populate the symbol table with watchlist symbols and OHLC data."""
         table = self.query_one("#symbol-table", DataTable)
         table.clear()
         
         self.current_symbols = symbols
         
-        for symbol in symbols:
-            # Try to get company name from search
-            company_name = symbol.name
-            try:
-                results = symbol_search_service.search_symbols(symbol.name, max_results=1)
-                if results and len(results) > 0:
-                    company_name = results[0]['name']
-            except:
-                pass
-            
-            table.add_row(
-                symbol.name,
-                symbol.symbol_type.value.upper(),
-                company_name[:50] + "..." if len(company_name) > 50 else company_name
-            )
+        # Show loading message
+        self._update_status("Fetching price data...", "symbol")
         
-        status = f"Press Enter on a symbol to view details. Press Q/Escape to go back."
+        # Get all equity/ETF symbols for batch fetch
+        equity_symbols = [s.name for s in symbols if s.symbol_type.value in ['equity', 'etf']]
+        
+        # Fetch OHLC data for all equity symbols at once
+        stock_data = self._get_stock_data(equity_symbols) if equity_symbols else {}
+        
+        for symbol in symbols:
+            # Get display name - use full_name if available, otherwise try search
+            display_name = symbol.full_name if hasattr(symbol, 'full_name') and symbol.full_name else symbol.name
+            if display_name == symbol.name:  # If no full_name, try search
+                try:
+                    results = symbol_search_service.search_symbols(symbol.name, max_results=1)
+                    if results and len(results) > 0:
+                        display_name = results[0]['name']
+                except:
+                    pass
+            
+            # DO NOT truncate - let the table handle scrolling
+            # The table will be horizontally scrollable
+            
+            # Get OHLC data if available
+            if symbol.name in stock_data and stock_data[symbol.name]:
+                data = stock_data[symbol.name]
+                
+                # Prepare Close value with color highlighting
+                close_price = data['Close']
+                prev_close = data['Previous Close']
+                close_str = f"₹{close_price}"
+                
+                # Color highlight based on comparison with previous close
+                if close_price > prev_close:
+                    close_text = Text(close_str, style="bold green")
+                elif close_price < prev_close:
+                    close_text = Text(close_str, style="bold red")
+                else:
+                    close_text = close_str  # No highlight when equal
+                
+                table.add_row(
+                    symbol.name,
+                    symbol.symbol_type.value.upper(),
+                    display_name,  # Full name - not truncated
+                    f"₹{data['Open']}",
+                    f"₹{data['High']}",
+                    f"₹{data['Low']}",
+                    close_text,  # Color-highlighted Close
+                    f"₹{prev_close}"
+                )
+            else:
+                # No data available (index, mutual fund, or failed fetch)
+                table.add_row(
+                    symbol.name,
+                    symbol.symbol_type.value.upper(),
+                    display_name,  # Full name - not truncated
+                    "-",
+                    "-",
+                    "-",
+                    "-",
+                    "-"
+                )
+        
+        status = f"Loaded {len(symbols)} symbol(s). Press Enter to view details. Press Q/Escape to go back."
         self._update_status(status, "symbol")
-    
-    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        """Handle symbol row selection."""
-        if event.data_table.id == "symbol-table":
-            row_index = event.cursor_row
-            if 0 <= row_index < len(self.current_symbols):
-                symbol = self.current_symbols[row_index]
-                self._navigate_to_symbol(symbol.name)
     
     def _navigate_to_symbol(self, symbol_name: str) -> None:
         """Navigate to symbol detail screen."""
@@ -206,7 +404,7 @@ class WatchlistViewScreen(Screen):
         widget = self.get_widget_at(event.x, event.y)[0]
         
         # Focus clickable widgets
-        if isinstance(widget, (ListView, DataTable)):
+        if isinstance(widget, (DataTable, Button)):
             widget.focus()
     
     def _back_to_list(self) -> None:
@@ -219,11 +417,11 @@ class WatchlistViewScreen(Screen):
         self.query_one("#watchlist-list-section").display = True
         self.query_one("#symbol-detail-section").display = False
         
-        # Focus the list
-        self.query_one("#watchlist-listview", ListView).focus()
+        # Focus the watchlist table
+        self.call_after_refresh(self._focus_watchlist_table)
         
         # Update status
-        self._update_status(f"Found {len(self.watchlists)} watchlist(s). Select one to view symbols.", "watchlist")
+        self._update_status(f"Found {len(self.watchlists)} watchlist(s). Navigate with arrow keys, Enter to view.", "watchlist")
     
     def _update_status(self, message: str, section: str = "watchlist") -> None:
         """Update status message."""

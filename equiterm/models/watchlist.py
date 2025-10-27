@@ -20,6 +20,7 @@ class Symbol:
     """Represents a financial symbol (stock, ETF, mutual fund, etc.)."""
     name: str
     symbol_type: SymbolType
+    full_name: Optional[str] = None  # Company name for equity, ETF name for ETF, etc.
     scheme_code: Optional[str] = None  # For ETFs and mutual funds
     mfapi_url: Optional[str] = None   # Constructed URL for MFAPI
     

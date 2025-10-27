@@ -9,7 +9,7 @@ from ..services.storage import storage
 from ..models.watchlist import Symbol, SymbolType
 from ..utils.symbol_detector import symbol_detector
 
-class SelectWatchlistScreen(Screen):
+class AddToWatchlistScreen(Screen):
     """Screen for selecting a watchlist to add a symbol to."""
     
     BINDINGS = [
@@ -17,10 +17,18 @@ class SelectWatchlistScreen(Screen):
         Binding("q", "pop_screen", "Back"),
     ]
     
-    def __init__(self, symbol: str):
+    def __init__(self, symbol: str, symbol_type: SymbolType = None, full_name: str = None):
         super().__init__()
         self.symbol = symbol
-        self.symbol_type, self.scheme_code = symbol_detector.detect_symbol_type(symbol)
+        
+        # Use provided symbol_type or detect it
+        if symbol_type:
+            self.symbol_type = symbol_type
+            _, self.scheme_code = symbol_detector.detect_symbol_type(symbol)
+        else:
+            self.symbol_type, self.scheme_code = symbol_detector.detect_symbol_type(symbol)
+        
+        self.full_name = full_name
         self.watchlist_names = []
     
     def compose(self) -> ComposeResult:
@@ -77,8 +85,13 @@ class SelectWatchlistScreen(Screen):
         try:
             watchlist = storage.load_watchlist(watchlist_name)
             if watchlist:
-                # Create symbol object
-                symobj = Symbol(self.symbol, self.symbol_type, scheme_code=self.scheme_code)
+                # Create symbol object with full_name
+                symobj = Symbol(
+                    name=self.symbol,
+                    symbol_type=self.symbol_type,
+                    full_name=self.full_name,
+                    scheme_code=self.scheme_code
+                )
                 
                 # Check if symbol already exists
                 if any(s.name == self.symbol for s in watchlist.symbols):

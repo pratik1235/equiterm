@@ -338,35 +338,6 @@ class EquitermApp(App):
         margin: 1 0;
     }
     
-    #watchlist-table {
-        height: auto;
-        width: 100%;
-    }
-    
-    #watchlist-items-container {
-        height: auto;
-        width: 100%;
-    }
-    
-    .watchlist-row {
-        height: auto;
-        width: 100%;
-        margin-bottom: 1;
-        padding: 0;
-    }
-    
-    .watchlist-select-btn {
-        width: 1fr;
-        height: 3;
-        margin-right: 1;
-    }
-    
-    .watchlist-delete-btn {
-        width: auto;
-        min-width: 15;
-        height: 3;
-    }
-    
     #watchlist-listview {
         height: auto;
     }
@@ -392,8 +363,6 @@ class EquitermApp(App):
     
     #symbol-table {
         height: auto;
-        overflow-x: auto;  /* Enable horizontal scrolling */
-        overflow-y: auto;  /* Enable vertical scrolling */
     }
     
     #watchlist-status, #symbol-status {
@@ -431,7 +400,7 @@ class EquitermApp(App):
         width: 60;
         height: 20;
         background: $surface;
-        border: round $error;
+        border: solid $error;
         padding: 2;
         align: center middle;
         margin: 4 0;
@@ -485,7 +454,7 @@ class EquitermApp(App):
     Button.-error {
         background: $surface;
         color: $text;
-        border: round $error;
+        border: solid $error;
     }
     
     /* Input styling */
@@ -496,7 +465,7 @@ class EquitermApp(App):
     }
     
     Input:focus {
-        border: round $accent;
+        border: solid $accent;
     }
     
     /* DataTable styling */
@@ -523,7 +492,7 @@ class EquitermApp(App):
     }
     
     Select:focus {
-        border: round $accent;
+        border: solid $accent;
     }
     
     /* Help Screen Styles */
@@ -625,47 +594,6 @@ class EquitermApp(App):
         color: $text-muted;
         margin-top: 1;
     }
-    
-    /* Symbol Detail Screen - Split Layout */
-    #detail-content-row {
-        height: auto;
-        width: 100%;
-    }
-    
-    #detail-left-panel {
-        width: auto;
-        height: auto;
-        padding-right: 2;
-    }
-    
-    #detail-right-panel {
-        width: auto;
-        height: auto;
-        padding-left: 1;
-    }
-    
-    #detail-table {
-        width: auto;
-        height: auto;
-        border: round $panel-lighten-2;
-    }
-    
-    #price-graph {
-        width: auto;
-        height: auto;
-        min-height: 25;
-        min-width: 70;
-        border: round $panel-lighten-2;
-        padding: 1;
-        background: $surface;
-        overflow: auto;
-    }
-    
-    #graph-status {
-        text-align: center;
-        color: $text-muted;
-        margin-top: 1;
-    }
     '''
     
     BINDINGS = [
@@ -675,24 +603,22 @@ class EquitermApp(App):
     ]
     
     def __init__(self):
-        self.themes = THEMES
         super().__init__()
         self.title = "EquiTerm"
         self.sub_title = ""
+        self.themes = THEMES
     
     def get_css_variables(self) -> dict[str, str]:
         """Get theme-specific CSS variables."""
-        base_vars = super().get_css_variables()
-        
-        if not hasattr(self, 'app_theme') or not self.app_theme:
-            return base_vars
-            
-        theme = self.themes.get(self.app_theme)
-        if theme:
-            color_system = theme.to_color_system().generate()
-            return {**base_vars, **color_system}
-        
-        return base_vars
+        if self.app_theme:
+            theme = self.themes.get(self.app_theme)
+            if theme:
+                color_system = theme.to_color_system().generate()
+            else:
+                color_system = {}
+        else:
+            color_system = {}
+        return {**super().get_css_variables(), **color_system}
     
     def action_cycle_theme(self) -> None:
         """Cycle through available themes."""

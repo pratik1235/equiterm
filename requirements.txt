@@ -1,3 +1,6 @@
 textual>=0.40.0
 jugaad-data>=0.25
 requests>=2.31.0
+plotext>=5.2.8
+pydantic>=2.0.0
+yfinance>=0.2.28

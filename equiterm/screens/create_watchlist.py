@@ -241,11 +241,14 @@ class CreateWatchlistScreen(Screen):
         
         # Detect symbol type
         symbol_type, scheme_code = symbol_detector.detect_symbol_type(symbol_name)
-        
-        # Create symbol object
+        # TODO: REMOVE THIS HACK
+        if (company_name != None and "ETF" in company_name):
+            symbol_type = SymbolType.ETF
+        # Create symbol object with full_name
         symbol = Symbol(
             name=symbol_name,
             symbol_type=symbol_type,
+            full_name=company_name,  # Save company/ETF name as full_name
             scheme_code=scheme_code
         )
         
