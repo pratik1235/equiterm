@@ -44,13 +44,15 @@ class WatchlistListScreen(Screen):
                     yield Static("", id="watchlist-status")
                 
                 # Favorite Watchlist View
-                with Vertical(id="favorite-watchlist-section"):
-                    yield Static("⭐ Favorite Watchlist", id="favorite-title")
-                    yield Static("", id="favorite-watchlist-name")
-                    with VerticalScroll(id="favorite-scroll", can_focus=True):
-                        yield DataTable(id="favorite-table")
-                    yield Static("", id="favorite-status")
-        
+                self.show_favorite_watchlist = False  # Flag to control favorite watchlist display
+
+                if self.show_favorite_watchlist:
+                    with Vertical(id="favorite-watchlist-section", display=True):
+                        yield Static("⭐ Favorite Watchlist", id="favorite-title")
+                        yield Static("", id="favorite-watchlist-name")
+                        with VerticalScroll(id="favorite-scroll", can_focus=True):
+                            yield DataTable(id="favorite-table")
+                        yield Static("", id="favorite-status")
         yield Footer()
     
     def on_mount(self) -> None:
@@ -61,20 +63,21 @@ class WatchlistListScreen(Screen):
         watchlist_table.cursor_type = "cell"  # Enable cell navigation
         
         # Setup favorite table columns
-        favorite_table = self.query_one("#favorite-table", DataTable)
-        favorite_table.add_columns(
-            "Symbol",
-            "Type",
-            "Name",
-            "Open",
-            "High",
-            "Low",
-            "Close",
-            "Prev Close",
-            "NAV",
-            "ETF Premium"
-        )
-        favorite_table.cursor_type = "row"
+        if self.show_favorite_watchlist:
+            favorite_table = self.query_one("#favorite-table", DataTable)
+            favorite_table.add_columns(
+                "Symbol",
+                "Type",
+                "Name",
+                "Open",
+                "High",
+                "Low",
+                "Close",
+                "Prev Close",
+                "NAV",
+                "ETF Premium"
+            )
+            favorite_table.cursor_type = "row"
         
         # Load watchlists immediately (fast, no API calls)
         self._load_watchlists()
@@ -83,7 +86,8 @@ class WatchlistListScreen(Screen):
         self.call_after_refresh(self._focus_watchlist_table)
         
         # Load favorite watchlist asynchronously (may involve API calls)
-        self.set_timer(0.1, self._load_favorite_watchlist_async)
+        # // todo: enable if you want to show favorite watchlist on watchlist list screen
+        # self.set_timer(0.2, self._load_favorite_watchlist_async)
     
     def _focus_watchlist_table(self) -> None:
         """Focus the watchlist table."""
@@ -149,6 +153,9 @@ class WatchlistListScreen(Screen):
     
     def _populate_favorite_table(self, symbols) -> None:
         """Populate the favorite table with symbol data."""
+        if not self.show_favorite_watchlist:
+            return
+        
         table = self.query_one("#favorite-table", DataTable)
         table.clear()
         
@@ -417,7 +424,10 @@ class WatchlistListScreen(Screen):
         # Handle navigation between watchlist table and favorite table
         try:
             watchlist_table = self.query_one("#watchlist-table", DataTable)
-            favorite_table = self.query_one("#favorite-table", DataTable)
+            if self.show_favorite_watchlist:
+                favorite_table = self.query_one("#favorite-table", DataTable)
+            else:
+                return
             favorite_section = self.query_one("#favorite-watchlist-section")
             
             # Only allow navigation if favorite section is visible

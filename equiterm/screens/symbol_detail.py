@@ -212,6 +212,12 @@ class SymbolDetailScreen(Screen):
             if len(df) > 1:
                 df = df.iloc[:-1]  # Exclude last data point
             
+            # Sort by date in ascending order (oldest first)
+            if 'DATE' in df.columns:
+                df = df.sort_values('DATE', ascending=True).reset_index(drop=True)
+            elif 'HistoricalDate' in df.columns:
+                df = df.sort_values('HistoricalDate', ascending=True).reset_index(drop=True)
+            
             # Clear previous plot
             plt.clear_figure()
             plt.clear_data()
@@ -234,17 +240,17 @@ class SymbolDetailScreen(Screen):
                 self.query_one("#graph-status").update("Close price column not found")
                 return
             
-            # Convert dates to "DD Mon" format
+            # Convert dates to day number only (DD format)
             date_labels = []
             for d in dates:
                 if isinstance(d, str):
-                    # Parse string date and format as "DD Mon"
+                    # Parse string date and format as day number only
                     try:
                         from datetime import datetime
                         parsed_date = datetime.strptime(d[:10], "%Y-%m-%d")
-                        date_labels.append(parsed_date.strftime("%d %b"))
+                        date_labels.append(parsed_date.strftime("%d"))
                     except:
-                        date_labels.append(d[:5])  # Fallback to first 5 chars
+                        date_labels.append(d[:2])  # Fallback to first 2 chars
                 else:
                     date_labels.append(str(d))
             
@@ -255,13 +261,16 @@ class SymbolDetailScreen(Screen):
             plt.xlabel("Date")
             plt.ylabel("Close Price (Rs)")
             
-            # Set custom x-axis labels (show every 5th date to avoid clutter)
-            if len(date_labels) > 10:
-                step = len(date_labels) // 10
+            # Set custom x-axis labels (show all or subset based on count)
+            # Since we're only showing day numbers, we can display more data points
+            if len(date_labels) > 15:
+                # Show every 3rd day to keep it readable
+                step = 3
                 xticks = list(range(0, len(date_labels), step))
                 xlabels = [date_labels[i] for i in xticks]
                 plt.xticks(xticks, xlabels)
             else:
+                # Show all days for datasets with fewer data points
                 plt.xticks(x_indices, date_labels)
             
             # Set plot size to fit the right panel (approximately)

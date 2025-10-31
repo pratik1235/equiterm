@@ -1,0 +1,6 @@
+# EquiTerm Configuration File
+
+storage:
+  type: json
+  path: ./data/watchlists.json
+

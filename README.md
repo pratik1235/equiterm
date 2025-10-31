@@ -2,6 +2,12 @@
 
 A modern, minimalistic terminal-based application for tracking stocks, ETFs, and mutual funds using Textual framework.
 
+---
+
+## 🎉 **100% Free & No Authentication Required**
+
+**EquiTerm uses only free, public APIs** - no tokens, API keys, or registrations needed! Just install and start tracking your investments immediately. All market data is sourced from public APIs without any authentication barriers.
+
 ## Features
 
 - 📈 **Real-time Stock Data**: Fetch live stock prices, indices, and market data

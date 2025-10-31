@@ -4,9 +4,11 @@ Abstract storage interface and implementations for watchlist persistence.
 
 import json
 import os
+import yaml
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 from datetime import datetime
+from pathlib import Path
 
 from ..models.watchlist import Watchlist, Symbol, SymbolType
 
@@ -43,7 +45,29 @@ class StorageInterface(ABC):
 class JSONStorage(StorageInterface):
     """JSON file-based storage implementation."""
     
-    def __init__(self, file_path: str = "data/watchlists.json"):
+    @staticmethod
+    def _load_config() -> Dict:
+        """Load configuration from config.yaml file."""
+        
+        config_path = Path(__file__).parent.parent.parent / "config.yaml"
+        
+        if not config_path.exists():
+            return {}
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f) or {}
+        except (yaml.YAMLError, IOError):
+            return {}
+    
+    def __init__(self, file_path: str = None):
+        if file_path is None:
+            # Try to load from config file
+            config = self._load_config()
+            storage_path = config.get('storage', {}).get('path')
+            # Expand ~ to home directory
+            file_path = os.path.expanduser(storage_path)
+        
         self.file_path = file_path
         self._ensure_data_directory()
     
